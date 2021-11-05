@@ -8,6 +8,10 @@ const DOMAIN = 'www.3700.network'
 const CHUNKED = 'Transfer-Encoding: chunked'
 const HOST_HEADER = 'Host: www.3700.network'
 
+const args = process.argv.slice(2)
+const username = args[0]
+const password = args[1]
+
 function parseHTTPResponse(resp) {
 	const lines = resp.split(/\r?\n/)
 
