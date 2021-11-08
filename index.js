@@ -69,14 +69,22 @@ function getHtmlFromUrl(url) {
 	}
 }
 
-function getUrlsFromHtml(html) {
+function getUrlsAndSecretFlagsFromHtml(html) {
 	const $ = cheerio.load(html)
-	return [].filter((url) => new URL(url).host === DOMAIN)
-}
+	const urls = []
+	$('a').each((i, el) => {
+		// make sure that the url has the correct domain name
+		if (new URL(el.attribs.href).host === DOMAIN) {
+			urls.push(el.attribs.href)
+		}
+	})
 
-function getSecretFlagsFromHtml(html) {
-	const $ = cheerio.load(html)
-	return []
+	const flags = []
+	$('h2.secret_flag').each((i, el) => {
+		flags.push(el.children.toString())
+	})
+
+	return { urls, flags }
 }
 
 function crawl() {
@@ -88,8 +96,7 @@ function crawl() {
 
 		// get and parse url html
 		const html = getHtmlFromUrl(url)
-		const links = getUrlsFromHtml(html)
-		const secrets = getSecretFlagsFromHtml(html)
+		const { urls: links, flags: secrets } = getUrlsAndSecretFlagsFromHtml(html)
 
 		for (const secret of secrets) {
 			console.log(secret)
