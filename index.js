@@ -1,14 +1,11 @@
 const cheerio = require('cheerio')
 const tls = require('tls')
-const URL = require('url').URL
 
 const GET = 'GET'
 const POST = 'POST'
 const HTTP_VERSION = 'HTTP/1.1'
 const CHUNKED = 'Transfer-Encoding: chunked'
 const HOST_HEADER = 'Host: fakebook.3700.network'
-const KEEP_ALIVE_HEADER = 'Connection: Keep-Alive'
-const GZIP_HEADER = 'Accept-Encoding: gzip'
 
 const args = process.argv.slice(2)
 const username = args[0]
@@ -25,7 +22,7 @@ function parseHTTPResponse(resp) {
 	}
 	const statusCode = splitFirstLine[1]
 
-	const isChunked = !!lines.find((l) => l == CHUNKED)
+	const isChunked = !!lines.find((l) => l === CHUNKED)
 	let body = ''
 	const indexOfEmptyLine = lines.indexOf('')
 
@@ -34,6 +31,7 @@ function parseHTTPResponse(resp) {
 	headersList.forEach((header) => {
 		const split = header.split(': ')
 		if (split[0] === 'Set-Cookie') {
+			// split up the Set-Cookie header by each equal statement, save csrf token in headers object
 			const newKey = split[1].slice(0, split[1].indexOf('='))
 			const newValue = split[1].slice(split[1].indexOf('=') + 1, split[1].indexOf(';'))
 			headers[newKey] = newValue
@@ -109,6 +107,7 @@ function getUrlsAndSecretFlagsFromHtml(html) {
 	})
 
 	const flags = []
+	// extract the secret flag
 	$('h2.secret_flag').each((i, el) => {
 		flags.push(el.children[0].data)
 	})
@@ -119,8 +118,8 @@ function getUrlsAndSecretFlagsFromHtml(html) {
 let csrftoken = ''
 let sessionId = ''
 
+// initial connection
 let client = tls.connect(443, 'fakebook.3700.network', { rejectUnauthorized: false }, () => {
-	console.log('connected')
 	client.write(`${GET} /accounts/login/?next=/fakebook/ ${HTTP_VERSION}\n${HOST_HEADER}\n\n`)
 })
 
@@ -129,6 +128,7 @@ let doneLogin = false
 
 const onLoginData = (data) => {
 	if (getHtml) {
+		// login to fakebook
 		const { statusCode, headers, body } = parseHTTPResponse(data.toString())
 		const $ = cheerio.load(body)
 		const { value } = $('input[name=csrfmiddlewaretoken]').get(0).attribs
@@ -142,6 +142,7 @@ const onLoginData = (data) => {
 		const { statusCode, headers, body } = parseHTTPResponse(data.toString())
 		sessionId = headers.sessionid
 		csrftoken = headers.csrftoken
+		// run crawler
 		crawl()
 		doneLogin = true
 	}
@@ -151,8 +152,6 @@ let onData = onLoginData
 
 client.on('data', onData)
 
-let counter = 0
-
 async function crawl() {
 	const stack = ['/fakebook/'] // stack of urls
 	const visited = new Set() // url has been visited or is about to be visited (is in the stack)
@@ -160,7 +159,6 @@ async function crawl() {
 
 	while (stack.length != 0) {
 		const url = stack.pop()
-		counter++
 
 		// get and parse url html
 		const result = await getHtmlFromUrl(url)
@@ -170,7 +168,8 @@ async function crawl() {
 			const { urls: links, flags: secrets } = getUrlsAndSecretFlagsFromHtml(html)
 
 			for (const secret of secrets) {
-				console.log(secret)
+				const splitSecret = secret.split(' ')
+				console.log(splitSecret[1])
 			}
 
 			for (const link of links) {
